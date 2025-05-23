@@ -7,18 +7,22 @@ import {
   Platform,
   Image,
   ScrollView,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { AntDesign } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Picker } from '@react-native-picker/picker';
-import { dummyUsers } from '../api/dummyUsers';
+import { dummyUsers } from '../api/dummyUsers'; 
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Video } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+// Diimpor untuk akses lokasi GPS
+import JenisBencanaPicker from '../api/JenisBencanaPicker';
+import LocationPickers from '../api/LocationPickers';  
 
 export default function ReportScreen() {
   const navigation = useNavigation();
@@ -28,11 +32,16 @@ export default function ReportScreen() {
   const [tanggal, setTanggal] = useState(new Date());
   const [waktu, setWaktu] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
+
   const [jenisBencana, setJenisBencana] = useState('');
-  const [kecamatan, setKecamatan] = useState('');
-  const [desa, setDesa] = useState('');
+  const [customJenisBencana, setCustomJenisBencana] = useState('');
+
+  const [kecamatan, setKecamatan] = useState('Pilih Kecamatan');
+  const [desa, setDesa] = useState('Pilih Desa');
+
   const [alamat, setAlamat] = useState('');
   const [media, setMedia] = useState<{ uri: string; type: string } | null>(null);
+  const [loadingLocation, setLoadingLocation] = useState(false); 
 
   useEffect(() => {
     const now = new Date();
@@ -51,7 +60,6 @@ export default function ReportScreen() {
   };
 
   const { data } = useLocalSearchParams();
-  const laporan = data ? JSON.parse(data as string) : [];
 
   const pickMedia = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -70,18 +78,59 @@ export default function ReportScreen() {
       if (isAllowed) {
         setMedia({ uri: selected.uri, type: selected.type });
       } else {
-        alert('Format file tidak didukung. Harap unggah file JPG, JPEG, PNG, atau MP4.');
+        Alert.alert('Format File Tidak Didukung', 'Harap unggah file JPG, JPEG, PNG, atau MP4.');
       }
     }
   };
 
+  const handleGetLocation = async () => {
+    setLoadingLocation(true);
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Izin Lokasi Ditolak', 'Mohon berikan izin akses lokasi untuk mengisi alamat secara otomatis.');
+      setLoadingLocation(false);
+      return;
+    }
+
+    try {
+      let location = await Location.getCurrentPositionAsync({});
+      const { latitude, longitude } = location.coords;
+
+      const dummyAddress = `Jalan Contoh No. 123, Desa Dummy, Kecamatan Dummy, Subang`;
+      setAlamat(dummyAddress);
+      
+      Alert.alert('Lokasi Ditemukan', 'Alamat berhasil diisi secara otomatis.');
+
+    } catch (error) {
+      console.error('Gagal mendapatkan lokasi:', error);
+      Alert.alert('Gagal Mendapatkan Lokasi', 'Terjadi kesalahan saat mencoba mendapatkan lokasi Anda.');
+    } finally {
+      setLoadingLocation(false);
+    }
+  };
+
   const handleSubmit = async () => {
+    // Tentukan jenis bencana akhir yang akan disimpan
+    const finalJenisBencana = jenisBencana === 'Lainnya' ? customJenisBencana : jenisBencana;
+
+    // Validasi dasar
+    if (!namaLengkap || !finalJenisBencana || kecamatan === 'Pilih Kecamatan' || desa === 'Pilih Desa' || !alamat) {
+      Alert.alert('Form Belum Lengkap', 'Mohon lengkapi semua kolom yang wajib diisi.');
+      return;
+    }
+
+    // Validasi jenis bencana kustom jika 'Lainnya' dipilih
+    if (jenisBencana === 'Lainnya' && !customJenisBencana.trim()) {
+      Alert.alert('Jenis Bencana Tidak Boleh Kosong', 'Mohon masukkan jenis bencana lainnya.');
+      return;
+    }
+
     const newLaporan = {
       id: Date.now(),
       namaLengkap,
       tanggal: formatDate(tanggal),
       waktu,
-      jenisBencana,
+      jenisBencana: finalJenisBencana, // Gunakan jenis bencana akhir yang ditentukan
       kecamatan,
       desa,
       alamat,
@@ -96,10 +145,11 @@ export default function ReportScreen() {
       const updatedList = [...parsedData, newLaporan];
       await AsyncStorage.setItem('riwayatLaporan', JSON.stringify(updatedList));
 
+      Alert.alert('Laporan Terkirim', 'Laporan bencana Anda berhasil dikirim!');
       router.push('/Homepage');
     } catch (error) {
       console.error('Gagal menyimpan laporan:', error);
-      alert('Terjadi kesalahan saat menyimpan laporan.');
+      Alert.alert('Terjadi Kesalahan', 'Terjadi kesalahan saat menyimpan laporan.');
     }
   };
 
@@ -117,7 +167,7 @@ export default function ReportScreen() {
         <Text style={styles.headerText}>Form Laporan Bencana</Text>
       </View>
 
-      {/* Scrollable content */}
+      {/* Konten yang dapat di-scroll */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContainer}
@@ -143,36 +193,20 @@ export default function ReportScreen() {
           <Text style={styles.label}>Waktu Kejadian</Text>
           <TextInput style={styles.input} value={waktu} editable={false} />
 
-          <Text style={styles.label}>Jenis Bencana</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={jenisBencana}
-              onValueChange={(itemValue) => setJenisBencana(itemValue)}
-            >
-              <Picker.Item label="Pilih Jenis Bencana" value="" />
-              <Picker.Item label="Tanah Longsor" value="Tanah Longsor" />
-              <Picker.Item label="Gempa Bumi" value="Gempa Bumi" />
-              <Picker.Item label="Banjir" value="Banjir" />
-              <Picker.Item label="Erupsi Gunung Berapi" value="Erupsi Gunung Berapi" />
-              <Picker.Item label="Angin Puting Beliung" value="Angin Puting Beliung" />
-              <Picker.Item label="Tsunami" value="Tsunami" />
-            </Picker>
-          </View>
-
-          <Text style={styles.label}>Kecamatan</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Pilih Kecamatan"
-            value={kecamatan}
-            onChangeText={setKecamatan}
+          {/* Memanggil komponen JenisBencanaPicker */}
+          <JenisBencanaPicker
+            jenisBencana={jenisBencana}
+            setJenisBencana={setJenisBencana}
+            customJenisBencana={customJenisBencana}
+            setCustomJenisBencana={setCustomJenisBencana}
           />
 
-          <Text style={styles.label}>Desa</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Pilih Desa"
-            value={desa}
-            onChangeText={setDesa}
+          {/* Memanggil komponen LocationPickers */}
+          <LocationPickers
+            kecamatan={kecamatan}
+            setKecamatan={setKecamatan}
+            desa={desa}
+            setDesa={setDesa}
           />
 
           <Text style={styles.label}>Alamat Lengkap</Text>
@@ -181,7 +215,22 @@ export default function ReportScreen() {
             placeholder="Masukkan Alamat Lengkap"
             value={alamat}
             onChangeText={setAlamat}
+            multiline
+            numberOfLines={4}
           />
+          
+          {/* Tombol untuk mengisi alamat otomatis */}
+          <TouchableOpacity
+            style={[styles.button, styles.autoFillButton]}
+            onPress={handleGetLocation}
+            disabled={loadingLocation}
+          >
+            {loadingLocation ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Isi Otomatis Lokasi</Text>
+            )}
+          </TouchableOpacity>
 
           <Text style={styles.label}>Bukti Foto / Video</Text>
           <TouchableOpacity onPress={pickMedia} style={styles.uploadButton}>
@@ -195,7 +244,8 @@ export default function ReportScreen() {
               source={{ uri: media.uri }}
               style={styles.previewMedia}
               useNativeControls
-              resizeMode="contain"/>
+              resizeMode="contain"
+            />
           )}
 
           <TouchableOpacity style={styles.button} onPress={handleSubmit}>
@@ -267,6 +317,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     borderRadius: 8,
     marginTop: 5,
+    overflow: 'hidden',
+  },
+  picker: {
+    width: '100%',
+    height: 50,
+    color: '#333',
   },
   uploadButton: {
     backgroundColor: '#E7E7E7',
@@ -293,4 +349,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+  autoFillButton: {
+    backgroundColor: '#FF0000',
+    marginTop: 10,
+  },
 });
