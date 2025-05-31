@@ -1,29 +1,34 @@
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, StatusBar } from 'react-native'; // Tambahkan StatusBar
 import React, { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AntDesign } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Video } from 'expo-av';
+import { Video } from 'expo-av'; // Pastikan expo-av terinstal
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // Import useSafeAreaInsets
 
 export default function HistoryLaporan() {
   const { data } = useLocalSearchParams();
   const router = useRouter();
+  const insets = useSafeAreaInsets(); // Dapatkan insets untuk area aman
 
   const [laporanList, setLaporanList] = useState<any[]>([]);
 
   useEffect(() => {
     const saveData = async () => {
-      console.log('Data dari halaman sebelumnya:', data);
+      // console.log('Data dari halaman sebelumnya:', data); // Log ini hanya untuk debugging
 
       try {
         if (data) {
           const newData = JSON.parse(decodeURIComponent(data as string));
-          console.log('Data setelah decode:', newData);
+          // console.log('Data setelah decode:', newData); // Log ini hanya untuk debugging
 
           const existingData = await AsyncStorage.getItem('riwayatLaporan');
           const parsedExisting = existingData ? JSON.parse(existingData) : [];
 
-          const updatedData = [...parsedExisting, newData];
+          // Tambahkan ID unik jika belum ada, atau setidaknya timestamp
+          const reportWithId = { ...newData, id: Date.now().toString() }; // Tambahkan ID unik
+
+          const updatedData = [reportWithId, ...parsedExisting]; // Tambahkan yang baru di awal daftar
           await AsyncStorage.setItem('riwayatLaporan', JSON.stringify(updatedData));
           setLaporanList(updatedData);
         } else {
@@ -39,103 +44,239 @@ export default function HistoryLaporan() {
     };
 
     saveData();
-  }, [data]);
+  }, [data]); // data sebagai dependency agar effect jalan jika data berubah
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/Homepage')}>
-          <AntDesign name="arrowleft" size={24} color="black" />
+    <View style={styles.fullContainer}> {/* Gunakan fullContainer agar header tetap */}
+      {/* StatusBar untuk konsistensi warna */}
+      <StatusBar barStyle="light-content" backgroundColor="#D2601A" />
+
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        {/* Slot Kiri (Tombol Kembali) */}
+        <TouchableOpacity style={styles.headerLeft} onPress={() => router.push('/Homepage')}>
+          <AntDesign name="arrowleft" size={24} color="white" />
         </TouchableOpacity>
-        <Text style={styles.title}>Riwayat Laporan</Text>
+
+        {/* Slot Tengah (Judul) */}
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Riwayat Laporan</Text>
+        </View>
+
+        {/* Slot Kanan (Kosong atau untuk ikon lain) */}
+        <View style={styles.headerRight} />
       </View>
 
-      {laporanList.length === 0 ? (
-        <Text style={styles.noData}>Belum ada laporan.</Text>
-      ) : (
-        laporanList.map((laporan: any, index: number) => (
-          <View key={index} style={styles.card}>
-            <Text style={styles.item}>Nama: {laporan.namaLengkap}</Text>
-            <Text style={styles.item}>Tanggal: {laporan.tanggal}</Text>
-            <Text style={styles.item}>Waktu: {laporan.waktu}</Text>
-            <Text style={styles.item}>Bencana: {laporan.jenisBencana}</Text>
-            <Text style={styles.item}>Kecamatan: {laporan.kecamatan}</Text>
-            <Text style={styles.item}>Desa: {laporan.desa}</Text>
-            <Text style={styles.item}>Alamat: {laporan.alamat}</Text>
-
-            {/* Tampilkan gambar jika tersedia */}
-            {laporan.mediaUri && laporan.mediaType === 'image' && (
-              <Image source={{ uri: laporan.mediaUri }} style={styles.media} />
-            )}
-
-            {/* Tampilkan video jika tersedia */}
-            {laporan.mediaUri && laporan.mediaType === 'video' && (
-              <Video
-                source={{ uri: laporan.mediaUri }}
-                style={styles.media}
-                useNativeControls
-                resizeMode="contain"/>
-            )}
+      {/* Konten yang bisa di-scroll */}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={true}>
+        {laporanList.length === 0 ? (
+          <View style={styles.noDataContainer}>
+            <Text style={styles.noDataText}>Belum ada laporan yang tersedia.</Text>
+            <Text style={styles.noDataSubtext}>Silakan buat laporan baru.</Text>
           </View>
-        ))
-      )}
+        ) : (
+          laporanList.map((laporan: any, index: number) => (
+            <View key={laporan.id || index} style={styles.card}> {/* Gunakan laporan.id sebagai key jika ada */}
+              <Text style={styles.cardTitle}>Laporan #{laporanList.length - index}</Text> {/* Nomor laporan */}
+              <View style={styles.itemRow}>
+                <Text style={styles.itemLabel}>Nama:</Text>
+                <Text style={styles.itemValue}>{laporan.namaLengkap}</Text>
+              </View>
+              <View style={styles.itemRow}>
+                <Text style={styles.itemLabel}>Tanggal:</Text>
+                <Text style={styles.itemValue}>{laporan.tanggal}</Text>
+              </View>
+              <View style={styles.itemRow}>
+                <Text style={styles.itemLabel}>Waktu:</Text>
+                <Text style={styles.itemValue}>{laporan.waktu}</Text>
+              </View>
+              <View style={styles.itemRow}>
+                <Text style={styles.itemLabel}>Bencana:</Text>
+                <Text style={styles.itemValue}>{laporan.jenisBencana}</Text>
+              </View>
+              <View style={styles.itemRow}>
+                <Text style={styles.itemLabel}>Kecamatan:</Text>
+                <Text style={styles.itemValue}>{laporan.kecamatan}</Text>
+              </View>
+              <View style={styles.itemRow}>
+                <Text style={styles.itemLabel}>Desa:</Text>
+                <Text style={styles.itemValue}>{laporan.desa}</Text>
+              </View>
+              <View style={styles.itemRow}>
+                <Text style={styles.itemLabel}>Alamat:</Text>
+                <Text style={styles.itemValue}>{laporan.alamat}</Text>
+              </View>
 
-      <TouchableOpacity style={styles.homeButton} onPress={() => router.push('/Homepage')}>
-        <Text style={styles.homeButtonText}>Kembali ke Homepage</Text>
-      </TouchableOpacity>
-    </ScrollView>
+              {/* Tampilkan media jika tersedia */}
+              {laporan.mediaUri && (
+                <View style={styles.mediaContainer}>
+                  <Text style={styles.mediaLabel}>Media Bukti:</Text>
+                  {laporan.mediaType === 'image' && (
+                    <Image source={{ uri: laporan.mediaUri }} style={styles.mediaPreview} />
+                  )}
+                  {laporan.mediaType === 'video' && (
+                    <Video
+                      source={{ uri: laporan.mediaUri }}
+                      style={styles.mediaPreview}
+                      useNativeControls
+                      resizeMode="contain"
+                    />
+                  )}
+                </View>
+              )}
+            </View>
+          ))
+        )}
+
+        <TouchableOpacity style={styles.homeButton} onPress={() => router.push('/Homepage')}>
+          <Text style={styles.homeButtonText}>Kembali ke Homepage</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    backgroundColor: '#FFF',
+  fullContainer: {
     flex: 1,
+    backgroundColor: '#FFF1E1', // Warna latar belakang keseluruhan
   },
   header: {
+    backgroundColor: '#D2601A', // Warna latar belakang header
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    height: 90, // Tinggi tetap untuk header
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    shadowColor: '#000', // Tambahkan shadow
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 8,
+    overflow: 'hidden', // Pastikan radius terlihat rapi
   },
-  title: {
+  headerLeft: {
+    flex: 1,
+    alignItems: 'flex-start',
+    paddingBottom: 5,
+  },
+  headerCenter: {
+    flex: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 5,
+  },
+  headerRight: {
+    flex: 1,
+    alignItems: 'flex-end',
+    paddingBottom: 5,
+  },
+  headerTitle: {
+    color: 'white',
     fontSize: 20,
     fontWeight: 'bold',
-    marginLeft: 10,
+    textAlign: 'center',
+  },
+  scrollContent: {
+    flexGrow: 1, // Penting agar ScrollView bisa mengisi sisa ruang dan konten pendek tetap di tengah
+    padding: 16,
+    paddingTop: 20, // Sedikit ruang di atas kartu pertama
+    paddingBottom: 20, // Ruang di bawah tombol kembali
   },
   card: {
-    backgroundColor: '#f0f0f0',
-    padding: 15,
-    borderRadius: 8,
+    backgroundColor: 'white',
+    padding: 20, // Padding lebih besar
+    borderRadius: 15, // Sudut lebih membulat
+    marginBottom: 16, // Jarak antar kartu
+    shadowColor: '#000', // Shadow untuk efek card
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+    borderWidth: 1, // Border tipis
+    borderColor: '#D2601A30', // Warna border dengan opacity
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#D2601A',
     marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    paddingBottom: 8,
   },
-  item: {
-    marginBottom: 4,
+  itemRow: {
+    flexDirection: 'row', // Atur item dalam baris
+    marginBottom: 6,
   },
-  backButton: {
-    padding: 4,
+  itemLabel: {
+    fontWeight: 'bold',
+    color: '#66320F', // Warna label
+    marginRight: 8,
+    fontSize: 15,
+    width: 90, // Lebar tetap untuk label agar sejajar
   },
-  homeButton: {
-    marginTop: 20,
-    backgroundColor: '#D2601A',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
+  itemValue: {
+    flex: 1, // Mengambil sisa ruang
+    color: '#333', // Warna nilai
+    fontSize: 15,
   },
-  homeButtonText: {
-    color: 'white',
+  mediaContainer: {
+    marginTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingTop: 10,
+  },
+  mediaLabel: {
     fontSize: 16,
     fontWeight: 'bold',
+    color: '#66320F',
+    marginBottom: 8,
   },
-  noData: {
-    textAlign: 'center',
-    color: 'gray',
-    marginTop: 20,
-  },
-  media: {
+  mediaPreview: {
     width: '100%',
     height: 200,
-    marginTop: 10,
-    borderRadius: 8,
+    borderRadius: 10,
+    backgroundColor: '#f0f0f0', // Latar belakang placeholder untuk media
+  },
+  noDataContainer: {
+    flex: 1, // Penting agar pesan berada di tengah jika scrollContent flexGrow: 1
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50, // Padding vertikal untuk ruang
+  },
+  noDataText: {
+    fontSize: 18,
+    color: '#D2601A',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  noDataSubtext: {
+    fontSize: 14,
+    color: '#777',
+    textAlign: 'center',
+  },
+  homeButton: {
+    marginTop: 30, // Jarak dari kartu terakhir atau pesan noData
+    backgroundColor: 'white', // Latar belakang putih
+    paddingVertical: 15, // Padding lebih besar
+    paddingHorizontal: 25,
+    borderRadius: 15, // Lebih membulat
+    alignSelf: 'center', // Pusatkan tombol
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 5,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#D2601A30',
+  },
+  homeButtonText: {
+    color: '#D2601A', // Warna teks sesuai branding
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
