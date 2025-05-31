@@ -8,8 +8,7 @@ import {
   Image,
   ScrollView,
   Alert,
-  ActivityIndicator,
-} from 'react-native';
+  ActivityIndicator,} from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { AntDesign } from '@expo/vector-icons';
@@ -262,13 +261,13 @@ const styles = StyleSheet.create({
   topShape: {
     position: 'absolute',
     width: '100%',
-    height: 180,
+    height: 100,
     backgroundColor: '#D2601A',
-    borderBottomLeftRadius: 50,
-    borderBottomRightRadius: 50,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
     justifyContent: 'center',
-    paddingTop: 40,
-    zIndex: 10,
+    paddingTop: 20,
+    zIndex: 5,
   },
   backButton: {
     position: 'absolute',
@@ -285,11 +284,11 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    marginTop: 180,
+    marginTop: 100,
   },
   scrollContainer: {
     alignItems: 'center',
-    paddingBottom: 40,
+    paddingBottom: 30,
   },
   formContainer: {
     width: '90%',
