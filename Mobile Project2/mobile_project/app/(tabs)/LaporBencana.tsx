@@ -8,20 +8,22 @@ import {
   Image,
   ScrollView,
   Alert,
-  ActivityIndicator,} from 'react-native';
+  ActivityIndicator,
+} from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { AntDesign } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { dummyUsers } from '../api/dummyUsers'; 
+import { dummyUsers } from '../api/dummyUsers';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Video } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 // Diimpor untuk akses lokasi GPS
+import * as Location from 'expo-location'; // Import Location
 import JenisBencanaPicker from '../api/JenisBencanaPicker';
-import LocationPickers from '../api/LocationPickers';  
+import LocationPickers from '../api/LocationPickers';
 
 export default function ReportScreen() {
   const navigation = useNavigation();
@@ -31,6 +33,7 @@ export default function ReportScreen() {
   const [tanggal, setTanggal] = useState(new Date());
   const [waktu, setWaktu] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   const [jenisBencana, setJenisBencana] = useState('');
   const [customJenisBencana, setCustomJenisBencana] = useState('');
@@ -40,7 +43,7 @@ export default function ReportScreen() {
 
   const [alamat, setAlamat] = useState('');
   const [media, setMedia] = useState<{ uri: string; type: string } | null>(null);
-  const [loadingLocation, setLoadingLocation] = useState(false); 
+  const [loadingLocation, setLoadingLocation] = useState(false);
 
   useEffect(() => {
     const now = new Date();
@@ -52,6 +55,15 @@ export default function ReportScreen() {
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
     if (selectedDate) setTanggal(selectedDate);
+  };
+
+  const handleTimeChange = (event: any, selectedTime?: Date) => {
+    setShowTimePicker(false);
+    if (selectedTime) {
+      const jam = selectedTime.getHours().toString().padStart(2, '0');
+      const menit = selectedTime.getMinutes().toString().padStart(2, '0');
+      setWaktu(`${jam}:${menit}`);
+    }
   };
 
   const formatDate = (date: Date) => {
@@ -97,7 +109,7 @@ export default function ReportScreen() {
 
       const dummyAddress = `Jalan Contoh No. 123, Desa Dummy, Kecamatan Dummy, Subang`;
       setAlamat(dummyAddress);
-      
+
       Alert.alert('Lokasi Ditemukan', 'Alamat berhasil diisi secara otomatis.');
 
     } catch (error) {
@@ -109,18 +121,21 @@ export default function ReportScreen() {
   };
 
   const handleSubmit = async () => {
-    // Tentukan jenis bencana akhir yang akan disimpan
     const finalJenisBencana = jenisBencana === 'Lainnya' ? customJenisBencana : jenisBencana;
 
-    // Validasi dasar
     if (!namaLengkap || !finalJenisBencana || kecamatan === 'Pilih Kecamatan' || desa === 'Pilih Desa' || !alamat) {
       Alert.alert('Form Belum Lengkap', 'Mohon lengkapi semua kolom yang wajib diisi.');
       return;
     }
 
-    // Validasi jenis bencana kustom jika 'Lainnya' dipilih
     if (jenisBencana === 'Lainnya' && !customJenisBencana.trim()) {
       Alert.alert('Jenis Bencana Tidak Boleh Kosong', 'Mohon masukkan jenis bencana lainnya.');
+      return;
+    }
+
+    const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    if (!timeRegex.test(waktu)) {
+      Alert.alert('Format Waktu Salah', 'Mohon masukkan waktu dengan format HH:MM (contoh: 14:30).');
       return;
     }
 
@@ -129,7 +144,7 @@ export default function ReportScreen() {
       namaLengkap,
       tanggal: formatDate(tanggal),
       waktu,
-      jenisBencana: finalJenisBencana, // Gunakan jenis bencana akhir yang ditentukan
+      jenisBencana: finalJenisBencana,
       kecamatan,
       desa,
       alamat,
@@ -152,11 +167,16 @@ export default function ReportScreen() {
     }
   };
 
+  // Calculate the minimum selectable date (13 days ago from today)
+  const today = new Date();
+  const thirteenDaysAgo = new Date();
+  thirteenDaysAgo.setDate(today.getDate() - 13); // Changed from -14 to -13
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
-      {/* Header tetap di atas */}
+
+      {/* Header fixed at the top */}
       <View style={styles.topShape}>
         <TouchableOpacity
           style={styles.backButton}
@@ -166,7 +186,7 @@ export default function ReportScreen() {
         <Text style={styles.headerText}>Form Laporan Bencana</Text>
       </View>
 
-      {/* Konten yang dapat di-scroll */}
+      {/* Scrollable content */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContainer}
@@ -186,13 +206,26 @@ export default function ReportScreen() {
               mode="date"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               onChange={handleDateChange}
+              maximumDate={today} // Restrict to today or past
+              minimumDate={thirteenDaysAgo} // Now restricted to no older than 13 days ago
             />
           )}
 
           <Text style={styles.label}>Waktu Kejadian</Text>
-          <TextInput style={styles.input} value={waktu} editable={false} />
+          <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.input}>
+            <Text>{waktu}</Text>
+          </TouchableOpacity>
+          {showTimePicker && (
+            <DateTimePicker
+              value={new Date(`2000-01-01T${waktu}:00`)}
+              mode="time"
+              display="spinner"
+              onChange={handleTimeChange}
+              is24Hour={true}
+            />
+          )}
 
-          {/* Memanggil komponen JenisBencanaPicker */}
+          {/* Calling JenisBencanaPicker component */}
           <JenisBencanaPicker
             jenisBencana={jenisBencana}
             setJenisBencana={setJenisBencana}
@@ -200,7 +233,7 @@ export default function ReportScreen() {
             setCustomJenisBencana={setCustomJenisBencana}
           />
 
-          {/* Memanggil komponen LocationPickers */}
+          {/* Calling LocationPickers component */}
           <LocationPickers
             kecamatan={kecamatan}
             setKecamatan={setKecamatan}
@@ -217,8 +250,8 @@ export default function ReportScreen() {
             multiline
             numberOfLines={4}
           />
-          
-          {/* Tombol untuk mengisi alamat otomatis */}
+
+          {/* Button to auto-fill location */}
           <TouchableOpacity
             style={[styles.button, styles.autoFillButton]}
             onPress={handleGetLocation}
