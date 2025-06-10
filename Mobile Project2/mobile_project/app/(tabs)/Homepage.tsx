@@ -1,8 +1,8 @@
 import { ScrollView, View, Text, Image, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { AntDesign } from '@expo/vector-icons';
-import { FontAwesome5 } from '@expo/vector-icons'; // Masih dibutuhkan jika ada ikon lain dari FontAwesome5
+import { FontAwesome5 } from '@expo/vector-icons';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -19,6 +19,8 @@ const Homepage: React.FC = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  const [showAllEducations, setShowAllEducations] = useState(false);
+
   const handleReportPress = () => {
     router.push('/LaporBencana');
   };
@@ -31,7 +33,7 @@ const Homepage: React.FC = () => {
     }
   };
 
-  const handlePenyuluhanPress = () => { // Fungsi untuk tombol Penyuluhan
+  const handlePenyuluhanPress = () => {
     router.push('/PenyuluhanScreen');
   };
 
@@ -39,25 +41,28 @@ const Homepage: React.FC = () => {
     router.push('/Profile');
   };
 
+  const handleNotificationPress = () => {
+    router.push('/NotificationScreen');
+  };
+
+  const displayedEducations = showAllEducations ? educations : educations.slice(0, 3);
+  const hasMoreEducations = educations.length > 3 && !showAllEducations;
+  const showLessButton = showAllEducations;
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#D48442" />
 
       {/* Header Utama */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        {/* Slot Kiri (Kosong atau untuk ikon menu/dll) */}
-        <View style={styles.headerLeft}>
-          {/* Tidak ada tombol kembali di Homepage */}
-        </View>
-
-        {/* Slot Tengah (Judul Homepage) */}
+        <View style={styles.headerLeft}></View>
         <View style={styles.headerCenter}>
           <Text style={styles.headerText}>Homepage</Text>
         </View>
-
-        {/* Slot Kanan (Hanya Ikon Profil sekarang) */}
         <View style={styles.headerRight}>
-          {/* Ikon Penyuluhan dihapus dari sini */}
+          <TouchableOpacity onPress={handleNotificationPress} style={styles.headerIcon}>
+            <AntDesign name="bells" size={24} color="white" />
+          </TouchableOpacity>
           <TouchableOpacity onPress={handleProfilePress} style={styles.headerIcon}>
             <MaterialIcons name="person" size={26} color="white" />
           </TouchableOpacity>
@@ -75,24 +80,23 @@ const Homepage: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Tombol Edukasi */}
+        {/* Tombol Edukasi (Cari Edukasi Bencana Lainnya) */}
         <TouchableOpacity style={styles.educationButton} onPress={() => handleEducationListPress()}>
           <Text style={styles.educationButtonText}>Cari Edukasi Bencana Lainnya</Text>
           <AntDesign name="arrowright" size={18} color="#D48442" />
         </TouchableOpacity>
 
-        {/* --- TOMBOL PENYULUHAN BARU DI SINI --- */}
+        {/* --- TOMBOL PENYULUHAN --- */}
         <TouchableOpacity style={styles.penyuluhanButton} onPress={handlePenyuluhanPress}>
           <Text style={styles.penyuluhanButtonText}>Informasi Penyuluhan</Text>
-          <FontAwesome5 name="chalkboard-teacher" size={18} color="#66320F" /> {/* Ikon Penyuluhan */}
+          <FontAwesome5 name="chalkboard-teacher" size={18} color="#66320F" />
         </TouchableOpacity>
-        {/* --- AKHIR TOMBOL PENYULUHAN BARU --- */}
 
         {/* List Bencana Horizontal */}
         <View style={styles.horizontalListSection}>
-          <Text style={styles.horizontalListTitle}>Jelajahi Jenis Bencana</Text>
+          <Text style={styles.horizontalListTitle}>Jenis Edukasi Bencana</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
-            {educations.map((item) => (
+            {displayedEducations.map((item) => (
               <TouchableOpacity
                 key={item.id}
                 style={styles.horizontalItemCard}
@@ -102,6 +106,26 @@ const Homepage: React.FC = () => {
               </TouchableOpacity>
             ))}
           </ScrollView>
+
+          {/* "Lihat Lebih Lengkap" button */}
+          {hasMoreEducations && (
+            <TouchableOpacity
+              style={styles.viewMoreButton}
+              onPress={() => setShowAllEducations(true)}
+            >
+              <Text style={styles.viewMoreText}>Tampilkan Lebih Lengkap</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* "Tampilkan Lebih Sedikit" button */}
+          {showLessButton && (
+            <TouchableOpacity
+              style={[styles.viewMoreButton, styles.viewLessButton]}
+              onPress={() => setShowAllEducations(false)}
+            >
+              <Text style={styles.viewMoreText}>Tampilkan Lebih Sedikit</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -210,7 +234,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderRadius: 15,
-    marginBottom: 15, // Mengurangi margin bawah sedikit karena ada tombol baru di bawahnya
+    marginBottom: 15,
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
@@ -224,7 +248,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-  // --- GAYA BARU UNTUK TOMBOL PENYULUHAN ---
   penyuluhanButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -233,23 +256,23 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderRadius: 15,
-    marginBottom: 30, // Jarak ke elemen berikutnya (List Bencana)
+    marginBottom: 30,
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 3.84,
     elevation: 5,
     borderWidth: 1,
-    borderColor: '#66320F30', // Warna border berbeda agar ada variasi
+    borderColor: '#66320F30',
   },
   penyuluhanButtonText: {
-    color: '#66320F', // Warna teks yang berbeda
+    color: '#66320F',
     fontWeight: 'bold',
     fontSize: 16,
   },
-  // --- AKHIR GAYA BARU ---
   horizontalListSection: {
     marginBottom: 20,
+    position: 'relative',
   },
   horizontalListTitle: {
     fontSize: 18,
@@ -259,7 +282,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   horizontalScroll: {
-    // paddingHorizontal: 5, // Sedikit padding untuk scroll
+    alignItems: 'center',
+    paddingBottom: 40,
   },
   horizontalItemCard: {
     backgroundColor: 'white',
@@ -289,6 +313,34 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#333',
     fontWeight: 'bold',
+  },
+  viewMoreButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 7,
+    backgroundColor: '#D2601A',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 5,
+    flexDirection: 'row',
+  },
+  viewMoreText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: 'white',
+    textAlign: 'center',
+  },
+  viewLessButton: {
+    right: 7, // Adjust position to be next to "Lihat Lebih Lengkap"
+    backgroundColor: '#777', // A grey color to differentiate
   },
 });
 
