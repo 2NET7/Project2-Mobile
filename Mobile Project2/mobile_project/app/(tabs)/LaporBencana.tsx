@@ -42,7 +42,7 @@ export default function ReportScreen() {
   const [desa, setDesa] = useState('Pilih Desa');
 
   const [alamat, setAlamat] = useState('');
-  const [media, setMedia] = useState<{ uri: string; type: string } | null>(null);
+  const [media, setMedia] = useState<{ uri: string; type: 'image' | 'video' } | null>(null);
   const [loadingLocation, setLoadingLocation] = useState(false);
 
   useEffect(() => {
@@ -72,27 +72,80 @@ export default function ReportScreen() {
 
   const { data } = useLocalSearchParams();
 
-  const pickMedia = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
+  // --- MODIFIKASI DIMULAI ---
+
+  // Fungsi ini akan menangani hasil dari picker (baik kamera maupun galeri)
+  const handleMediaResult = (result: ImagePicker.ImagePickerResult) => {
+    if (!result.canceled) {
+      const selectedAsset = result.assets[0];
+      // Pastikan tipe media adalah 'image' atau 'video'
+      if (selectedAsset.type === 'image' || selectedAsset.type === 'video') {
+         setMedia({ uri: selectedAsset.uri, type: selectedAsset.type });
+      } else {
+         Alert.alert('Format Tidak Didukung', 'Harap pilih file gambar atau video.');
+      }
+    }
+  };
+
+  // Fungsi untuk membuka kamera
+  const openCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Izin Diperlukan', 'Aplikasi ini memerlukan izin kamera untuk melanjutkan.');
+      return;
+    }
+    
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All, // Izinkan foto dan video
       allowsEditing: true,
       quality: 1,
     });
 
-    if (!result.canceled) {
-      const selected = result.assets[0];
-      const uri = selected.uri.toLowerCase();
-
-      const allowedExtensions = ['.jpg', '.jpeg', '.mp4', '.png'];
-      const isAllowed = allowedExtensions.some(ext => uri.endsWith(ext));
-
-      if (isAllowed) {
-        setMedia({ uri: selected.uri, type: selected.type });
-      } else {
-        Alert.alert('Format File Tidak Didukung', 'Harap unggah file JPG, JPEG, PNG, atau MP4.');
-      }
-    }
+    handleMediaResult(result);
   };
+
+  // Fungsi untuk membuka galeri
+  const openGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+     if (status !== 'granted') {
+      Alert.alert('Izin Diperlukan', 'Aplikasi ini memerlukan izin galeri untuk melanjutkan.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All, // Izinkan foto dan video
+      allowsEditing: true,
+      quality: 1,
+    });
+
+    handleMediaResult(result);
+  };
+
+  // Fungsi utama yang dipanggil oleh tombol, akan menampilkan dialog
+  const selectMedia = () => {
+    Alert.alert(
+      'Pilih Sumber Bukti',
+      'Anda ingin mengambil bukti dari mana?',
+      [
+        {
+          text: 'Buka Kamera',
+          onPress: openCamera,
+        },
+        {
+          text: 'Pilih dari Galeri',
+          onPress: openGallery,
+        },
+        {
+          text: 'Batal',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  // --- MODIFIKASI SELESAI ---
+
 
   const handleGetLocation = async () => {
     setLoadingLocation(true);
@@ -107,6 +160,8 @@ export default function ReportScreen() {
       let location = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = location.coords;
 
+      // NOTE: Menggunakan geocoding untuk mendapatkan alamat asli akan memerlukan API Key (misal: Google Maps).
+      // Untuk sekarang, kita tetap gunakan dummy address.
       const dummyAddress = `Jalan Contoh No. 123, Desa Dummy, Kecamatan Dummy, Subang`;
       setAlamat(dummyAddress);
 
@@ -167,10 +222,9 @@ export default function ReportScreen() {
     }
   };
 
-  // Calculate the minimum selectable date (13 days ago from today)
   const today = new Date();
   const thirteenDaysAgo = new Date();
-  thirteenDaysAgo.setDate(today.getDate() - 13); // Changed from -14 to -13
+  thirteenDaysAgo.setDate(today.getDate() - 13);
 
   return (
     <View style={styles.container}>
@@ -206,8 +260,8 @@ export default function ReportScreen() {
               mode="date"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               onChange={handleDateChange}
-              maximumDate={today} // Restrict to today or past
-              minimumDate={thirteenDaysAgo} // Now restricted to no older than 13 days ago
+              maximumDate={today}
+              minimumDate={thirteenDaysAgo}
             />
           )}
 
@@ -225,7 +279,6 @@ export default function ReportScreen() {
             />
           )}
 
-          {/* Calling JenisBencanaPicker component */}
           <JenisBencanaPicker
             jenisBencana={jenisBencana}
             setJenisBencana={setJenisBencana}
@@ -233,7 +286,6 @@ export default function ReportScreen() {
             setCustomJenisBencana={setCustomJenisBencana}
           />
 
-          {/* Calling LocationPickers component */}
           <LocationPickers
             kecamatan={kecamatan}
             setKecamatan={setKecamatan}
@@ -251,7 +303,6 @@ export default function ReportScreen() {
             numberOfLines={4}
           />
 
-          {/* Button to auto-fill location */}
           <TouchableOpacity
             style={[styles.button, styles.autoFillButton]}
             onPress={handleGetLocation}
@@ -265,9 +316,12 @@ export default function ReportScreen() {
           </TouchableOpacity>
 
           <Text style={styles.label}>Bukti Foto / Video</Text>
-          <TouchableOpacity onPress={pickMedia} style={styles.uploadButton}>
+          {/* --- MODIFIKASI DISINI --- */}
+          {/* Mengubah onPress dari pickMedia ke selectMedia */}
+          <TouchableOpacity onPress={selectMedia} style={styles.uploadButton}>
             <Text style={styles.uploadText}>Pilih Foto atau Video</Text>
           </TouchableOpacity>
+
           {media?.type === 'image' && (
             <Image source={{ uri: media.uri }} style={styles.previewMedia} />
           )}
@@ -329,6 +383,10 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 12,
     elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   label: {
     fontSize: 14,
@@ -344,17 +402,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     marginTop: 5,
-  },
-  pickerContainer: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    marginTop: 5,
-    overflow: 'hidden',
-  },
-  picker: {
-    width: '100%',
-    height: 50,
-    color: '#333',
+    justifyContent: 'center', // Agar teks di dalam TouchableOpacity ter-center
   },
   uploadButton: {
     backgroundColor: '#E7E7E7',
