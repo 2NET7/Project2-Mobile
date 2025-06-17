@@ -7,6 +7,7 @@ import { PinchGestureHandler, State, GestureHandlerRootView } from 'react-native
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Video } from 'expo-av';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /* CATATAN PENTING:
   Fitur zoom menggunakan 'react-native-gesture-handler'. Jika belum terpasang, jalankan:
@@ -151,7 +152,7 @@ const CameraScreen: React.FC = () => {
 
   const handleUseMedia = () => {
     if (capturedMedia) {
-        router.replace({ pathname: '/ReportScreen', params: { mediaUri: capturedMedia.uri, mediaType: capturedMedia.type } });
+        router.replace({ pathname: '/LaporBencana', params: { mediaUri: capturedMedia.uri, mediaType: capturedMedia.type } });
     }
   };
   
